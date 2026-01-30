@@ -5,6 +5,9 @@ import { Scheduler } from "./worker/scheduler";
 import Metrics from "./metrics/metrics";
 import { Job } from "./types/Job";
 import { StorageAdapter } from "./storage/StorageAdapter";
+import { RedisConfig } from "./storage/RedisConfig";
+import { RedisConfigAdapter  } from "./storage/RedisConfigAdapter";
+import { MemoryStorageAdapter  } from "./storage/MemoryStorageAdapter";
 
 interface JobQueueOptions<T> {
     capacity: number;
@@ -21,43 +24,56 @@ interface JobQueueOptions<T> {
 
 export class JobQueue<T> extends EventEmitter {
     private storage: StorageAdapter<T>;
-    private queue:AsyncQueue<Job<T>>;
     private scheduler: Scheduler<T>
     private metrics: Metrics;
-    private options: JobQueueOptions<T>:
+    private options: JobQueueOptions<T>
 
     constructor(options: JobQueueOptions<T>) {
         super()
         this.options = options
         this.metrics = new Metrics();
+
         if(options.redis) {
-            const redisConfig:RedisConfig = 
+            const redisConfig:RedisConfig = {
+                host: options.redis.host,
+                port: options.redis.port,
+                password: options.redis.password,
+                queueName: options.redis.queueName,
+                capacity: options.capacity
+            }
+            this.storage = new RedisConfigAdapter<T>(redisConfig);  
+        }else{
+            this.storage = new MemoryStorageAdapter<T>(options.capacity);
         }
 
-        this.queue = new AsyncQueue<Job<T>>(options.capacity, options.strategy)
-        this.scheduler = new Scheduler<T>(this.queue, options.processor, options.concurrency, this.metrics);
+        this.scheduler = new Scheduler<T>(
+            options.processor, 
+            options.concurrency,
+            this.metrics,
+            this.storage
+        );
     }
 
-    private setupEventListeners() {
-        this.queue.on('queue:dropped',  () =>{
-            this.metrics.incrementJobsDropped();
-        })
-    }
+    // private setupEventListeners() {
+    // }
 
-    async add(payload: T): Promise<void> {
+    async add(payload: T): Promise<string> {
         const job: Job<T> = {
             id: crypto.randomUUID(),
             payload,
             attempts: 0,
             maxAttempts: 3,
             status: 'pending',
-            nextAttemptAt: null
+            nextAttemptAt: null,
+            error: null
         }
-        const added = await this.queue.enqueue(job);
+        const added = await this.storage.enqueue(job);
         if(added) {
             this.metrics.incrementJobsAdded();
-            this.metrics.updateQueueSize(this.queue.size());
+            const size = await this.storage.size()
+            this.metrics.updateQueueSize(size);
             this.emit('job:added', job);
+            return job.id
         }
     }
 

@@ -9,4 +9,7 @@ export interface Job<T>  {
   nextAttemptAt: Date | null;
   createdAt?: number;
   updatedAt?: number;
+  processingStartedAt?: number;
+  workerId?: string;
+  error: string | null;
 }
