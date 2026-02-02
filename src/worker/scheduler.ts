@@ -26,7 +26,7 @@ export class Scheduler<T> {
 
   async start(): Promise<void> {
     this.isRunning = this.isRunning = true;
-
+    
     // Recover any stuck jobs from previous run 
     const recoverd = await this.storage.recoverStuckJobs(300000)
 
@@ -37,6 +37,7 @@ export class Scheduler<T> {
     this.scheduleLoop()
     this.delayCheckLoop()
   }
+
   stop(): void {
     this.isRunning = false
   }
