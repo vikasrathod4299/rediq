@@ -1,12 +1,10 @@
 import { EventEmitter } from "node:events";
 
 import { Job } from "./types/Job";
-import { RedisConfig } from "./storage/RedisConfig";
 import { StorageAdapter } from "./storage/StorageAdapter";
 
-import { RedisConfigAdapter } from "./storage/RedisConfigAdapter";
-import { MemoryStorageAdapter } from "./storage/MemoryStorageAdapter";
 import Metrics from "./metrics/metrics";
+import { getStorage } from "./storage/StorageRegistery";
 
 interface WorkerOptions<T> {
     concurrency?: number;
@@ -38,18 +36,10 @@ export class Worker<T> extends EventEmitter {
         this.stuckJobTimeout = options.stuckJobTimeout ?? 30000;
         this.metrics = new Metrics();
 
-        if(options.redis) {
-                const redisConfig: RedisConfig = {
-                host: options.redis.host,
-                port: options.redis.port,
-                password: options.redis.password,
-                queueName: this.queueName,
-                capacity: options.capacity ?? 1000,
-            }
-            this.storage = new RedisConfigAdapter<T>(redisConfig);
-        } else{
-            this.storage = new MemoryStorageAdapter<T>(options.capacity ?? 1000);
-        }
+        this.storage = getStorage<T>(queueName, {
+            capacity: options.capacity,
+            redis: options.redis
+        });
     }
 
     async start(): Promise<void>{
@@ -89,9 +79,11 @@ export class Worker<T> extends EventEmitter {
 
         while (this.isRunning) {
             try {
-                const job = await this.storage.dequeue(5000);
-
+                const job = await this.storage.dequeue(1);
                 if(job) {
+                    const size = await this.storage.size();
+                    this.metrics.updateQueueSize(size)
+
                     this.activeWorkers++;
                     this.updateMetrics()
                     try {
@@ -111,11 +103,13 @@ export class Worker<T> extends EventEmitter {
     private async processJob(job: Job<T>, workerName: string): Promise<void> {
         const startTime = Date.now();
         this.emit('job:processing', {job, worker: workerName})
+        job.status = 'processing';
 
         try {
             await this.processor(job);
             await this.storage.markCompleted(job.id);
 
+            job.status = 'completed';
             this.metrics.incrementJobsCompleted()
             this.metrics.recordProcessingTime(Date.now() - startTime)
             this.emit('job:completed', {job, duration: Date.now() - startTime})
@@ -123,6 +117,8 @@ export class Worker<T> extends EventEmitter {
             const errorMessage = error instanceof Error ? error.message : String(error);
 
             if(job.attempts < job.maxAttempts) {
+                job.status = 'pending';
+
                 const delayMs = Math.pow(2, job.attempts) * 1000;
                 const executeAt = Date.now() + delayMs;
 
@@ -131,6 +127,7 @@ export class Worker<T> extends EventEmitter {
                 this.metrics.incrementRetries()
                 this.emit('job:retry', {job, error: errorMessage, nextAttemptAt: new Date(executeAt)})
             } else {
+                job.status = 'failed';
                 await this.storage.markFailed(job.id, errorMessage);
                 this.emit('job:failed', {job, error: errorMessage});
             }
@@ -142,8 +139,14 @@ export class Worker<T> extends EventEmitter {
             try {
                 const promoted = await this.storage.promoteDelayedJobs();
 
+                if(promoted > 0) {
+                    this.emit('jobs:promoted', {count: promoted});
+                    const size = await this.storage.size();
+                    this.metrics.updateQueueSize(size);
+                }
+
             } catch (error) {
-                console.error(`Error in delayed job promoter:`, error);
+                this.emit('error', {error, context: 'delayedJobLoop'});
             }
             await new Promise(resolve => setTimeout(resolve, 100));
         }

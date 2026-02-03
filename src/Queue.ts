@@ -5,6 +5,7 @@ import { RedisConfig } from "./storage/RedisConfig";
 import { RedisConfigAdapter } from "./storage/RedisConfigAdapter";
 import { MemoryStorageAdapter } from "./storage/MemoryStorageAdapter";
 import BackpressureStrategy from "./queue/Backpressurestrategy";
+import { getStorage } from "./storage/StorageRegistery";
 
 interface QueueOptions<T> {
     redis?: {
@@ -23,24 +24,17 @@ export class Queue<T> extends EventEmitter {
     private backpressureStrategy: BackpressureStrategy;
     private isConnected: boolean = false;
     
-
     constructor(queueName: string, options: QueueOptions<T> = {}) {
         super();
         this.queueName = queueName;
         this.capacity = options.capacity ?? 1000;
         this.backpressureStrategy = options.backpressureStrategy ?? BackpressureStrategy.BLOCK_PRODUCER;
-        if(options.redis) {
-            const redisConfig: RedisConfig = {
-                host: options.redis.host,
-                port: options.redis.port,
-                password: options.redis.password,
-                queueName: this.queueName,
-                capacity: this.capacity,
-            }
-            this.storage = new RedisConfigAdapter<T>(redisConfig);
-        } else {
-            this.storage = new MemoryStorageAdapter<T>(this.capacity);
-        }
+
+        this.storage = getStorage<T>(queueName, {
+            capacity: this.capacity,
+            redis: options.redis
+        })
+        
     }
 
     async connect(): Promise<void> {

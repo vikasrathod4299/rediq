@@ -7,7 +7,7 @@ local jobIds = redis.call('ZRANGEBYSCORE', delayedKey, 0, now)
 
 local promoted = 0
 
-for i, jobId in ipairs(jonIds) do
+for i, jobId in ipairs(jobIds) do
     redis.call('ZREM', delayedKey, jobId)
     redis.call('HSET', jobKeyPrefix .. jobId, 'nextAttemptAt', '', 'updatedAt', now)
     redis.call('LPUSH', pendingKey, jobId)

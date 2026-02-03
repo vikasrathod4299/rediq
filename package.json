@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "worker-test": "ts-node tests/worker.test.ts",
+    "queue-test": "ts-node tests/queue.test.ts",
     "start": "ts-node src/index.ts"
   },
   "keywords": [],

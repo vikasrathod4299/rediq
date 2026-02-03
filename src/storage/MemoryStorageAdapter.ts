@@ -158,6 +158,7 @@ export class MemoryStorageAdapter<T> implements StorageAdapter<T> {
                 job.updatedAt = now;
 
                 if (this.waitingConsumers.length > 0) {
+
                     const resolver = this.waitingConsumers.shift()!;
                     
                     job.status = "processing";
