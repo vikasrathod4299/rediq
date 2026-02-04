@@ -1,9 +1,7 @@
 import {EventEmitter} from "node:events";
 import { Job } from "./types/Job";
+import crypto from "node:crypto";
 import { StorageAdapter } from "./storage/StorageAdapter";
-import { RedisConfig } from "./storage/RedisConfig";
-import { RedisConfigAdapter } from "./storage/RedisConfigAdapter";
-import { MemoryStorageAdapter } from "./storage/MemoryStorageAdapter";
 import BackpressureStrategy from "./queue/Backpressurestrategy";
 import { getStorage } from "./storage/StorageRegistery";
 

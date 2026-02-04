@@ -16,7 +16,7 @@ export class MemoryStorageAdapter<T> implements StorageAdapter<T> {
     }
 
     async connect(): Promise<void> {
-        
+        // No-op for memory storage
     }
 
     async disconnect(): Promise<void> {

@@ -1,19 +1,25 @@
 {
   "name": "resumable-job-queue",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "A resumable job queue with Redis and in-memory support",
+  "main": "dist/index.js",
   "scripts": {
-    "worker-test": "ts-node tests/worker.test.ts",
-    "queue-test": "ts-node tests/queue.test.ts",
-    "start": "ts-node src/index.ts"
+    "start": "ts-node src/index.ts",
+    "build": "tsc",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "devDependencies": {
     "@types/ioredis": "^4.28.10",
+    "@types/jest": "^29.5.0",
     "@types/node": "^25.0.2",
+    "ioredis-mock": "^8.9.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
   },
