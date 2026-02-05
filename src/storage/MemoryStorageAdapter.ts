@@ -68,6 +68,7 @@ export class MemoryStorageAdapter<T> implements StorageAdapter<T> {
         const now = Date.now()
 
         if (this.queue.length > 0) {
+            console.log('Dequeuing job, queue length:', this.queue.length)
             const jobId = this.queue.shift()!;
 
             const job = this.jobs.get(jobId)!;
@@ -229,6 +230,10 @@ export class MemoryStorageAdapter<T> implements StorageAdapter<T> {
     async updateJob(job: Job<T>): Promise<void> {
         job.updatedAt = Date.now();
         this.jobs.set(job.id, job);
+
+        if(job.status === "processing" && job.processingStartedAt !== undefined) { 
+            this.processingJobs.set(job.id, job.processingStartedAt);
+        }
     }
 
     async recoverStuckJobs(timeoutMs: number): Promise<number> {

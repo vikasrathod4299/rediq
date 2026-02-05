@@ -16,6 +16,7 @@ interface WorkerOptions<T> {
         password?: string;
     };
     capacity?: number;
+    timeoutMs?: number;
 }
 
 export class Worker<T> extends EventEmitter {
@@ -27,6 +28,7 @@ export class Worker<T> extends EventEmitter {
     private isRunning: boolean = false;
     private activeWorkers: number = 0;
     private metrics: Metrics;
+    private timeoutMs: number;
 
     constructor(queueName:string, options: WorkerOptions<T>) {
         super();
@@ -35,6 +37,7 @@ export class Worker<T> extends EventEmitter {
         this.processor = options.processor;
         this.stuckJobTimeout = options.stuckJobTimeout ?? 30000;
         this.metrics = new Metrics();
+        this.timeoutMs = options.timeoutMs || 5000;
 
         this.storage = getStorage<T>(queueName, {
             capacity: options.capacity,
@@ -79,7 +82,9 @@ export class Worker<T> extends EventEmitter {
 
         while (this.isRunning) {
             try {
-                const job = await this.storage.dequeue(1);
+
+                const job = await this.storage.dequeue(this.timeoutMs);
+
                 if(job) {
                     const size = await this.storage.size();
                     this.metrics.updateQueueSize(size)

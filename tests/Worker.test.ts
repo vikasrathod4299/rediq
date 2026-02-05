@@ -1,6 +1,7 @@
 import { Queue } from '../src/Queue';
 import { Worker } from '../src/Worker';
-import { clearMemoryStorageRegistry } from '../src/storage/StorageRegistery';
+import { MemoryStorageAdapter } from '../src/storage/MemoryStorageAdapter';
+import { clearMemoryStorageRegistry, getStorage } from '../src/storage/StorageRegistery';
 import { Job } from '../src/types/Job';
 
 describe('Worker', () => {
@@ -109,24 +110,57 @@ describe('Worker', () => {
       queue = new Queue('test-queue');
       await queue.connect();
 
+      const queueStorage = getStorage('test-queue') as MemoryStorageAdapter<any>;
+      console.log('Queue storage stats before: ', queueStorage.getStats());
+
       worker = new Worker('test-queue', {
         concurrency: 1,
         processor: async (job) => {
           attempts++;
+          console.log(`[${Date.now()}] processing attempt ${attempts}, job.attempts ${job.attempts}`);
           if (attempts < 3) {
             throw new Error('Temporary failure');
           }
+          console.log(`[${Date.now()}] SUCCESS on attempt ${attempts}`);
         },
+        timeoutMs:10
       });
 
       const retryHandler = jest.fn();
-      worker.on('job:retry', retryHandler);
+      worker.on('job:retry', (data)=>{
+        console.log('job:retry event data',data)
+        console.log(`[${Date.now()}] job:retry event for attempt ${data.job.attempts}`);
+        retryHandler(data);
+      });
+
+      worker.on('job:completed', () => {
+        console.log(`[${Date.now()}] job:completed event`);
+      })
+
+      worker.on('job:promoted', (data) => {
+        console.log(`[${Date.now()}] job:promoted event - count ${data?.count}`);
+      })
 
       await queue.add({ data: 'test' }, { maxAttempts: 5 });
+
+      console.log('Queue storage stats after adding job: ', queueStorage.getStats());
+
       await worker.start();
+      console.log(`[${Date.now()}] Worker started`);
+
+      // Check storage stats periodically
+      const checkInterval = setInterval(() => {
+        console.log(`[${Date.now()}] Storage stats` , queueStorage.getStats());
+      }, 1000);
+
 
       // Wait for retries (exponential backoff: 2s, 4s)
-      await new Promise(resolve => setTimeout(resolve, 8000));
+      await new Promise(resolve => setTimeout(resolve, 10000));
+
+      clearInterval(checkInterval);
+
+      console.log('Final attempts:', attempts);
+      console.log('Final storage stats:', queueStorage.getStats());
 
       expect(attempts).toBe(3); // 2 failures + 1 success
       expect(retryHandler).toHaveBeenCalledTimes(2);

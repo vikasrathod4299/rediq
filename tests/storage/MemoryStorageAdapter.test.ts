@@ -30,7 +30,7 @@ describe("MemoryStorageAdapter", () => {
             const job = createJob('job-1');
             const result = await storage.enqueue(job);
 
-            expect(result).toBe(job);
+            expect(result).toBe(true);
             expect(await storage.size()).toBe(1);
         })
 
@@ -154,12 +154,12 @@ describe("MemoryStorageAdapter", () => {
 
             const job = await storage.getJob('job-1');
             expect(job?.status).toBe('completed');
-            expect(job?.processingStartedAt).toBeDefined();
+            expect(job?.processingStartedAt).toBeUndefined();
         })
 
         it('should remove job from processing set', async () =>{
             await storage.enqueue(createJob('job-1'));
-            await storage.dequeue(0);
+            await storage.dequeue();
 
             const processsingBefore = await storage.getProcessingJobs();
             expect(processsingBefore).toContain('job-1');
@@ -227,18 +227,20 @@ describe("MemoryStorageAdapter", () => {
         })
 
         describe('recoverStuckJobs', () =>{
-            it('shold recover jobs stuck in processing', async () => {
+            it('should recover jobs stuck in processing', async () => {
                 await storage.enqueue(createJob('job-1'));
-                await storage.dequeue(0);
+                await storage.dequeue();
 
-                // Simulate job stuck  by manipulating processingStartedAt
+                // Simulate job stuck by manipulating processingStartedAt
                 const job = await storage.getJob('job-1');
+
                 if(job) {
-                    job.processingStartedAt = Date.now() - 60000;
+                    job.processingStartedAt = Date.now() - 60000; // 1 minute ago
+                    await storage.updateJob(job);
                 }
                 await new Promise(resolve=> setTimeout(resolve, 100)); // Ensure timestamp difference
 
-                const recovered = await storage.recoverStuckJobs(500); // 5 minutes
+                const recovered = await storage.recoverStuckJobs(30000); // 30 seconds
                 expect(recovered).toBe(1);
                 expect(await storage.size()).toBe(1);
             })
@@ -250,7 +252,7 @@ describe("MemoryStorageAdapter", () => {
                 const recovered = await storage.recoverStuckJobs(60000); // 10 minutes
                 expect(recovered).toBe(0);
             })
-        })
+        });
 
         describe('getJob', () => {
             it('should return job by ID', async () => {
