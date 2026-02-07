@@ -40,7 +40,6 @@ describe('Worker', () => {
 
       await worker.start();
 
-      // Wait for processing
       await new Promise(resolve => setTimeout(resolve, 500));
 
       expect(processedJobs).toHaveLength(2);
@@ -66,7 +65,6 @@ describe('Worker', () => {
       await queue.add({ data: 'test' }, { maxAttempts: 3 });
       await worker.start();
 
-      // Wait for processing
       await new Promise(resolve => setTimeout(resolve, 500));
 
       expect(completedHandler).toHaveBeenCalledTimes(1);
@@ -110,57 +108,26 @@ describe('Worker', () => {
       queue = new Queue('test-queue');
       await queue.connect();
 
-      const queueStorage = getStorage('test-queue') as MemoryStorageAdapter<any>;
-      console.log('Queue storage stats before: ', queueStorage.getStats());
-
       worker = new Worker('test-queue', {
         concurrency: 1,
         processor: async (job) => {
           attempts++;
-          console.log(`[${Date.now()}] processing attempt ${attempts}, job.attempts ${job.attempts}`);
           if (attempts < 3) {
             throw new Error('Temporary failure');
           }
-          console.log(`[${Date.now()}] SUCCESS on attempt ${attempts}`);
         },
-        timeoutMs:10
+        timeoutMs: 10
       });
 
       const retryHandler = jest.fn();
-      worker.on('job:retry', (data)=>{
-        console.log('job:retry event data',data)
-        console.log(`[${Date.now()}] job:retry event for attempt ${data.job.attempts}`);
-        retryHandler(data);
-      });
-
-      worker.on('job:completed', () => {
-        console.log(`[${Date.now()}] job:completed event`);
-      })
-
-      worker.on('job:promoted', (data) => {
-        console.log(`[${Date.now()}] job:promoted event - count ${data?.count}`);
-      })
+      worker.on('job:retry', retryHandler);
 
       await queue.add({ data: 'test' }, { maxAttempts: 5 });
 
-      console.log('Queue storage stats after adding job: ', queueStorage.getStats());
-
       await worker.start();
-      console.log(`[${Date.now()}] Worker started`);
-
-      // Check storage stats periodically
-      const checkInterval = setInterval(() => {
-        console.log(`[${Date.now()}] Storage stats` , queueStorage.getStats());
-      }, 1000);
-
 
       // Wait for retries (exponential backoff: 2s, 4s)
       await new Promise(resolve => setTimeout(resolve, 10000));
-
-      clearInterval(checkInterval);
-
-      console.log('Final attempts:', attempts);
-      console.log('Final storage stats:', queueStorage.getStats());
 
       expect(attempts).toBe(3); // 2 failures + 1 success
       expect(retryHandler).toHaveBeenCalledTimes(2);
@@ -213,7 +180,6 @@ describe('Worker', () => {
         },
       });
 
-      // Add 3 jobs
       await queue.add({ data: 'job-1' }, { maxAttempts: 3 });
       await queue.add({ data: 'job-2' }, { maxAttempts: 3 });
       await queue.add({ data: 'job-3' }, { maxAttempts: 3 });
@@ -221,9 +187,8 @@ describe('Worker', () => {
       await worker.start();
       await new Promise(resolve => setTimeout(resolve, 500));
 
-      // All 3 should start almost simultaneously
       const maxStartDiff = Math.max(...startTimes) - Math.min(...startTimes);
-      expect(maxStartDiff).toBeLessThan(100); // Within 100ms of each other
+      expect(maxStartDiff).toBeLessThan(100);
     });
   });
 
@@ -254,7 +219,6 @@ describe('Worker', () => {
       const countAfterStop = processedCount;
       await new Promise(resolve => setTimeout(resolve, 500));
 
-      // Should not process more jobs after stop
       expect(processedCount).toBe(countAfterStop);
     });
   });

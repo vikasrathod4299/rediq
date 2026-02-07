@@ -2,14 +2,13 @@ import { Job } from "../types/Job";
 import { StorageAdapter } from "./StorageAdapter";
 
 export class MemoryStorageAdapter<T> implements StorageAdapter<T> {
-    private queue: string[] = []; // Job Ids in FIFO order
-    private jobs: Map<string, Job<T>> = new Map(); // All job Datea
-    private processingJobs: Map<string, number> = new Map(); // jobIds -> startedAt timestamp
-    private delayedJobs: Map<string, number> = new Map(); // jobIds -> runAt timestamp
+    private queue: string[] = []; // Job IDs in FIFO order
+    private jobs: Map<string, Job<T>> = new Map(); // All job data
+    private processingJobs: Map<string, number> = new Map(); // jobId -> startedAt timestamp
+    private delayedJobs: Map<string, number> = new Map(); // jobId -> runAt timestamp
     private capacity: number;
     
-    
-    private waitingConsumers: Array<(job: Job<T> | null)=> void> = []
+    private waitingConsumers: Array<(job: Job<T> | null) => void> = [];
 
     constructor(capacity: number = 1000) {
         this.capacity = capacity;
@@ -29,13 +28,13 @@ export class MemoryStorageAdapter<T> implements StorageAdapter<T> {
     }
 
     async enqueue(job: Job<T>): Promise<boolean> {
-        const now = Date.now()
+        const now = Date.now();
         job.createdAt = now;
         job.updatedAt = now;
         job.status = "pending";
 
         if (this.jobs.size >= this.capacity) {
-            return false
+            return false;
         }
 
         this.jobs.set(job.id, job);
@@ -46,17 +45,17 @@ export class MemoryStorageAdapter<T> implements StorageAdapter<T> {
 
             job.status = "processing";
             job.attempts++;
-            job.processingStartedAt = now
+            job.processingStartedAt = now;
             job.updatedAt = now;
             this.processingJobs.set(job.id, now);
 
             resolver(job);
-            return true
+            return true;
         }
 
         // Check capacity
         if (this.queue.length >= this.capacity) {
-            this.jobs.delete(job.id) // Remove job if capacity exceeded
+            this.jobs.delete(job.id);
             return false;
         }
 
@@ -65,12 +64,10 @@ export class MemoryStorageAdapter<T> implements StorageAdapter<T> {
     }
 
     async dequeue(timeout: number = 5): Promise<Job<T> | null> {
-        const now = Date.now()
+        const now = Date.now();
 
         if (this.queue.length > 0) {
-            console.log('Dequeuing job, queue length:', this.queue.length)
             const jobId = this.queue.shift()!;
-
             const job = this.jobs.get(jobId)!;
 
             if(!job) {
@@ -79,7 +76,7 @@ export class MemoryStorageAdapter<T> implements StorageAdapter<T> {
 
             job.status = "processing";
             job.attempts++;
-            job.processingStartedAt = now
+            job.processingStartedAt = now;
             job.updatedAt = now;
             this.processingJobs.set(jobId, now);
             return job;
@@ -98,14 +95,14 @@ export class MemoryStorageAdapter<T> implements StorageAdapter<T> {
                 }
 
                 resolve(null);
-            }, timeout * 1000)
+            }, timeout * 1000);
 
             const wrappedResolver = (job: Job<T> | null) => {
-                clearTimeout(timeoutId)
-                resolve(job)
-            }
+                clearTimeout(timeoutId);
+                resolve(job);
+            };
             this.waitingConsumers.push(wrappedResolver);
-        })
+        });
     }
 
     async peek(): Promise<Job<T> | null> {
@@ -113,7 +110,7 @@ export class MemoryStorageAdapter<T> implements StorageAdapter<T> {
             return null;
         }
         const jobId = this.queue[0];
-        return this.jobs.get(jobId) || null
+        return this.jobs.get(jobId) || null;
     }
 
     async size(): Promise<number> {
@@ -129,18 +126,16 @@ export class MemoryStorageAdapter<T> implements StorageAdapter<T> {
     }
 
     async scheduleDelayed(job: Job<T>, executeAt: number): Promise<void> {
-        const now = Date.now()
+        const now = Date.now();
 
         job.status = 'pending';
-        job.nextAttemptAt  = new Date(executeAt)
+        job.nextAttemptAt = new Date(executeAt);
         job.createdAt = now;
         job.processingStartedAt = undefined;
         job.workerId = undefined;
 
         this.processingJobs.delete(job.id);
-
         this.delayedJobs.set(job.id, executeAt);
-
         this.jobs.set(job.id, job);
     }
 
@@ -152,19 +147,18 @@ export class MemoryStorageAdapter<T> implements StorageAdapter<T> {
             if(executeAt <= now) {
                 this.delayedJobs.delete(jobId);
 
-                const job  = this.jobs.get(jobId);
+                const job = this.jobs.get(jobId);
                 if(!job) continue;
 
                 job.nextAttemptAt = null;
                 job.updatedAt = now;
 
                 if (this.waitingConsumers.length > 0) {
-
                     const resolver = this.waitingConsumers.shift()!;
                     
                     job.status = "processing";
                     job.attempts++;
-                    job.processingStartedAt = now
+                    job.processingStartedAt = now;
                     job.updatedAt = now;
                     this.processingJobs.set(job.id, now);
 
@@ -179,7 +173,7 @@ export class MemoryStorageAdapter<T> implements StorageAdapter<T> {
     }
 
     async markProcessing(jobId: string, workerId: string): Promise<void> {
-        const now = Date.now()
+        const now = Date.now();
         const job = this.jobs.get(jobId);
 
         if(!job) return;
@@ -193,7 +187,7 @@ export class MemoryStorageAdapter<T> implements StorageAdapter<T> {
     }
 
     async markCompleted(jobId: string): Promise<void> {
-        const now = Date.now()
+        const now = Date.now();
         const job = this.jobs.get(jobId);
 
         if(!job) return;
@@ -203,14 +197,10 @@ export class MemoryStorageAdapter<T> implements StorageAdapter<T> {
         job.updatedAt = now;
 
         this.processingJobs.delete(jobId);
-
-        // TODO: keep completed jobs for history or delete them
-        // For memory efficiency, we could delete after some time
-        // For now, keep them but they won't be in any queue
     }
 
     async markFailed(jobId: string, error?: string): Promise<void> {
-        const now = Date.now()
+        const now = Date.now();
         const job = this.jobs.get(jobId);
         
         if(!job) return;
@@ -238,7 +228,7 @@ export class MemoryStorageAdapter<T> implements StorageAdapter<T> {
 
     async recoverStuckJobs(timeoutMs: number): Promise<number> {
         const now = Date.now();
-        let recoverd = 0;
+        let recovered = 0;
 
         for (const [jobId, startedAt] of this.processingJobs) {
             if(now - startedAt >= timeoutMs) {
@@ -255,12 +245,11 @@ export class MemoryStorageAdapter<T> implements StorageAdapter<T> {
                 job.updatedAt = now;
 
                 this.processingJobs.delete(jobId);
-
-                this.queue.unshift(jobId); // Re-add to the front of the queue
-                recoverd++;
+                this.queue.unshift(jobId);
+                recovered++;
             }
         }
-        return recoverd;
+        return recovered;
     }
 
     async getProcessingJobs(): Promise<string[]> {
@@ -273,6 +262,6 @@ export class MemoryStorageAdapter<T> implements StorageAdapter<T> {
             processing: this.processingJobs.size,
             delayed: this.delayedJobs.size,
             total: this.jobs.size
-        }
+        };
     }
 }

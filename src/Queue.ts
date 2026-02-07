@@ -69,31 +69,31 @@ export class Queue<T> extends EventEmitter {
             return job;
         }
 
-        return this.handleBackpresssure(payload, options);
+        return this.handleBackpressure(payload, options);
     }
 
-    private async handleBackpresssure(payload: T, options: {maxAttempts?: number}): Promise<Job<T>> {
+    private async handleBackpressure(payload: T, options: {maxAttempts?: number}): Promise<Job<T>> {
         switch(this.backpressureStrategy) {
-            case BackpressureStrategy.BLOCK_PRODUCER:
+
+            case BackpressureStrategy.DROP_NEWEST: 
                 this.emit('job:dropped', {payload, reason: "DROP_NEWEST"});
                 throw new Error("Queue is full. Job cannot be added.");
-            case BackpressureStrategy.ERROR:
-                throw new Error("Queue is full. Job cannot be added.");
 
-            case BackpressureStrategy.BLOCK_PRODUCER: {
+            case BackpressureStrategy.BLOCK_PRODUCER: 
                 while(await this.storage.isFull()) {
                     await new Promise(resolve => setTimeout(resolve, 100));
                 }
                 return this.add(payload, options);
-            }
 
             case BackpressureStrategy.DROP_OLDEST: 
-                const oldestJob = await this.storage.dequeue();
+                const oldestJob = await this.storage.dequeue(0);
                 if(oldestJob) {
                     this.emit('job:dropped', {job: oldestJob, reason: "DROP_OLDEST"});
                 }
                 return this.add(payload, options);
-            
+
+             case BackpressureStrategy.ERROR:
+                throw new Error("Queue is full. Job cannot be added.");
 
             default:
                 throw new Error("Queue is full.");

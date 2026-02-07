@@ -4,7 +4,7 @@ import { RedisConfigAdapter } from "./RedisConfigAdapter";
 import { RedisConfig } from "./RedisConfig";
 
 
-interface StorageOptoins {
+interface StorageOptions {
     capacity?: number;
     redis?: {
         host: string;
@@ -16,9 +16,9 @@ interface StorageOptoins {
 
 const memoryStorageRegistry = new Map<string, MemoryStorageAdapter<any>>();
 
-export function getStorage<T>(queueName: string, options: StorageOptoins = {}): StorageAdapter<T> {
+export function getStorage<T>(queueName: string, options: StorageOptions = {}): StorageAdapter<T> {
     if(options.redis) {
-        const redisConfig:RedisConfig = {
+        const redisConfig: RedisConfig = {
             host: options.redis.host,
             port: options.redis.port,
             password: options.redis.password,
@@ -28,7 +28,7 @@ export function getStorage<T>(queueName: string, options: StorageOptoins = {}): 
         return new RedisConfigAdapter<T>(redisConfig);  
     }
 
-    // In-Memory: Return SAME instance for same queue name
+    // In-Memory: Return same instance for same queue name
     if(!memoryStorageRegistry.has(queueName)) {
         memoryStorageRegistry.set(queueName, new MemoryStorageAdapter<T>(options.capacity || 1000));
     }

@@ -46,7 +46,7 @@ export class Metrics {
   private minProcessingTime: number = Infinity;
   
   private readonly startTime: number = Date.now();
-  private lastThrouughputCheck: number = Date.now();
+  private lastThroughputCheck: number = Date.now();
   private jobsSinceLastCheck: number = 0;
   private currentThroughput: number = 0;
 
@@ -73,7 +73,15 @@ export class Metrics {
   }
   
   recordProcessingTime(durationMs: number): void {
+    if(this.processingTimes.length >= this.maxSamples) {
+      this.processingTimes.shift();
+    }
     this.processingTimes.push(durationMs)
+
+    this.totalProcessingTime += durationMs;
+    this.processedCount++;
+    this.maxProcessingTime = Math.max(this.maxProcessingTime, durationMs);
+    this.minProcessingTime = Math.min(this.minProcessingTime, durationMs);
   }
 
   updateQueueSize(size: number): void {
@@ -87,11 +95,11 @@ export class Metrics {
 
   updateThroughput(): void {
     const now = Date.now();
-    const elapsed = now - this.lastThrouughputCheck
+    const elapsed = now - this.lastThroughputCheck
 
     if (elapsed >= 1000) {
       this.currentThroughput = (this.jobsSinceLastCheck / elapsed) * 1000;
-      this.lastThrouughputCheck = now;
+      this.lastThroughputCheck = now;
       this.jobsSinceLastCheck = 0;
     }
   }

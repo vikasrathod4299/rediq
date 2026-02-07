@@ -1,5 +1,5 @@
 {
-  "name": "resumable-job-queue",
+  "name": "flexiq",
   "version": "1.0.0",
   "description": "A resumable job queue with Redis and in-memory support",
   "main": "dist/index.js",
@@ -25,5 +25,21 @@
   },
   "dependencies": {
     "ioredis": "^5.9.2"
-  }
+  },
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "CommonJS",
+    "rootDir": "src",
+    "outDir": "dist",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true
+  },
+  "include": ["src"],
+  "exclude": ["node_modules", "dist", "tests", "coverage"]
 }
