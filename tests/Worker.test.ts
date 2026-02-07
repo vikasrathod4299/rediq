@@ -1,8 +1,4 @@
-import { Queue } from '../src/Queue';
-import { Worker } from '../src/Worker';
-import { MemoryStorageAdapter } from '../src/storage/MemoryStorageAdapter';
-import { clearMemoryStorageRegistry, getStorage } from '../src/storage/StorageRegistery';
-import { Job } from '../src/types/Job';
+import { Queue, Worker, Job, clearMemoryStorageRegistry } from 'flexq';
 
 describe('Worker', () => {
   let queue: Queue<{ data: string }>;
@@ -39,7 +35,6 @@ describe('Worker', () => {
       await queue.add({ data: 'job-2' }, { maxAttempts: 3 });
 
       await worker.start();
-
       await new Promise(resolve => setTimeout(resolve, 500));
 
       expect(processedJobs).toHaveLength(2);
@@ -55,24 +50,19 @@ describe('Worker', () => {
 
       worker = new Worker('test-queue', {
         concurrency: 1,
-        processor: async (job) => {
-          // Success
-        },
+        processor: async () => {},
       });
 
       worker.on('job:completed', completedHandler);
 
       await queue.add({ data: 'test' }, { maxAttempts: 3 });
       await worker.start();
-
       await new Promise(resolve => setTimeout(resolve, 500));
 
       expect(completedHandler).toHaveBeenCalledTimes(1);
       expect(completedHandler).toHaveBeenCalledWith(
         expect.objectContaining({
-          job: expect.objectContaining({
-            payload: { data: 'test' },
-          }),
+          job: expect.objectContaining({ payload: { data: 'test' } }),
           duration: expect.any(Number),
         })
       );
@@ -86,14 +76,11 @@ describe('Worker', () => {
 
       worker = new Worker('test-queue', {
         concurrency: 1,
-        processor: async (job) => {
-          jobId = job.id;
-        },
+        processor: async (job) => { jobId = job.id; },
       });
 
       await queue.add({ data: 'test' }, { maxAttempts: 3 });
       await worker.start();
-
       await new Promise(resolve => setTimeout(resolve, 500));
 
       const job = await queue.getJob(jobId!);
@@ -110,26 +97,22 @@ describe('Worker', () => {
 
       worker = new Worker('test-queue', {
         concurrency: 1,
-        processor: async (job) => {
+        processor: async () => {
           attempts++;
-          if (attempts < 3) {
-            throw new Error('Temporary failure');
-          }
+          if (attempts < 3) throw new Error('Temporary failure');
         },
-        timeoutMs: 10
+        timeoutMs: 10,
       });
 
       const retryHandler = jest.fn();
       worker.on('job:retry', retryHandler);
 
       await queue.add({ data: 'test' }, { maxAttempts: 5 });
-
       await worker.start();
 
-      // Wait for retries (exponential backoff: 2s, 4s)
       await new Promise(resolve => setTimeout(resolve, 10000));
 
-      expect(attempts).toBe(3); // 2 failures + 1 success
+      expect(attempts).toBe(3);
       expect(retryHandler).toHaveBeenCalledTimes(2);
     }, 15000);
 
@@ -152,7 +135,6 @@ describe('Worker', () => {
 
       await queue.add({ data: 'test' }, { maxAttempts: 1 });
       await worker.start();
-
       await new Promise(resolve => setTimeout(resolve, 500));
 
       expect(failedHandler).toHaveBeenCalledTimes(1);
@@ -166,17 +148,15 @@ describe('Worker', () => {
   describe('concurrency', () => {
     it('should process multiple jobs concurrently', async () => {
       const startTimes: number[] = [];
-      const endTimes: number[] = [];
 
       queue = new Queue('test-queue');
       await queue.connect();
 
       worker = new Worker('test-queue', {
         concurrency: 3,
-        processor: async (job) => {
+        processor: async () => {
           startTimes.push(Date.now());
           await new Promise(resolve => setTimeout(resolve, 200));
-          endTimes.push(Date.now());
         },
       });
 
@@ -201,7 +181,7 @@ describe('Worker', () => {
 
       worker = new Worker('test-queue', {
         concurrency: 1,
-        processor: async (job) => {
+        processor: async () => {
           processedCount++;
           await new Promise(resolve => setTimeout(resolve, 100));
         },
@@ -215,7 +195,6 @@ describe('Worker', () => {
       await new Promise(resolve => setTimeout(resolve, 150));
 
       await worker.stop();
-
       const countAfterStop = processedCount;
       await new Promise(resolve => setTimeout(resolve, 500));
 
@@ -230,9 +209,7 @@ describe('Worker', () => {
 
       worker = new Worker('test-queue', {
         concurrency: 1,
-        processor: async (job) => {
-          // Success
-        },
+        processor: async () => {},
       });
 
       await queue.add({ data: 'job-1' }, { maxAttempts: 3 });

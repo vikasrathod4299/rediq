@@ -1,4 +1,4 @@
-class BoundedQueue<T> {
+export class BoundedQueue<T> {
   private items: T[];
   private capacity: number;
 
@@ -11,9 +11,7 @@ class BoundedQueue<T> {
   }
 
   push(item: T): boolean {
-    if (this.isFull) {
-      return false;
-    }
+    if (this.isFull) return false;
     this.items.push(item);
     return true;
   }
@@ -38,5 +36,3 @@ class BoundedQueue<T> {
     return this.items[0];
   }
 }
-
-export { BoundedQueue };

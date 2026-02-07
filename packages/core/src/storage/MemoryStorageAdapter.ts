@@ -1,5 +1,6 @@
-import { Job } from "../types/Job";
-import { StorageAdapter } from "./StorageAdapter";
+import {Job} from "../types/Job";
+import {StorageAdapter} from "./StorageAdapter";
+
 
 export class MemoryStorageAdapter<T> implements StorageAdapter<T> {
     private queue: string[] = []; // Job IDs in FIFO order

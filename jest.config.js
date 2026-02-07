@@ -4,9 +4,13 @@ module.exports = {
   testEnvironment: 'node',
   roots: ['<rootDir>/tests'],
   testMatch: ['**/*.test.ts'],
+  moduleNameMapper: {
+    '^flexq$': '<rootDir>/packages/core/src',
+    '^@flexq/redis$': '<rootDir>/packages/redis/src',
+  },
   collectCoverageFrom: [
-    'src/**/*.ts',
-    '!src/index.ts',
+    'packages/*/src/**/*.ts',
+    '!packages/*/src/index.ts',
   ],
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'lcov'],

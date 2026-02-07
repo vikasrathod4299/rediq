@@ -1,6 +1,7 @@
-import { EventEmitter } from "events";
-import { BoundedQueue } from "./BoundedQueue";
-import BackpressureStrategy from "./Backpressurestrategy";
+import { EventEmitter } from 'events';
+import { BoundedQueue } from './BoundedQueue';
+import BackpressureStrategy from './BackpressureStrategy';
+
 
 class AsyncQueue<T> extends EventEmitter {
   private queue: BoundedQueue<T>;

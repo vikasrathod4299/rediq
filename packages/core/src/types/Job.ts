@@ -1,6 +1,6 @@
-export type JobStatus = 'pending' | 'processing' | 'failed' | 'completed'
+export type JobStatus = 'pending' | 'processing' | 'failed' | 'completed';
 
-export interface Job<T>  {
+export interface Job<T> {
   id: string;
   payload: T;
   attempts: number;
