@@ -1,6 +1,8 @@
 import Redis from "ioredis";
 import { Job, StorageAdapter } from "flexq";
 import { RedisConfig } from "./RedisConfig";
+import path from "path/win32";
+import fs from "fs";
 
 
 // ── Lua Scripts (inlined so tsc build is self-contained) ──
@@ -132,6 +134,20 @@ export class RedisStorageAdapter<T> implements StorageAdapter<T> {
         this.client = new Redis(redisOptions);
         this.blockingClient = new Redis(redisOptions);
     }
+
+    private enqueueLua = fs.readFileSync(
+        path.join(__dirname, 'lua-scripts', 'enqueue.lua'), 'utf-8'
+    );
+    private acquireJobLua = fs.readFileSync(
+        path.join(__dirname, 'lua-scripts', 'acquire-job.lua'), 'utf-8'
+    );
+    private promoteDelayedLua = fs.readFileSync(
+        path.join(__dirname, 'lua-scripts', 'promoteDelayed.lua'), 'utf-8'
+    );
+    private recoverStuckJobsLua = fs.readFileSync(
+        path.join(__dirname, 'lua-scripts', 'recoverStuckJobs.lua'), 'utf-8'
+    );
+
 
     private get pendingKey(): string {
         return `${this.config.queueName}:pending`;
