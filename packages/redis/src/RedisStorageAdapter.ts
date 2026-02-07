@@ -4,120 +4,6 @@ import { RedisConfig } from "./RedisConfig";
 import path from "path/win32";
 import fs from "fs";
 
-
-// ── Lua Scripts (inlined so tsc build is self-contained) ──
-
-const LUA_ENQUEUE = `
-local pendingKey = KEYS[1]
-local jobKey = KEYS[2]
-local capacity = tonumber(ARGV[1])
-local jobId = ARGV[2]
-local jobData = ARGV[3]
-
-local currentSize = redis.call('LLEN', pendingKey)
-if currentSize >= capacity then
-    return 0
-end
-
-local function safeStr(val, dflt)
-    if val == nil or val == cjson.null then
-        return dflt or ''
-    end
-    return tostring(val)
-end
-
-local job = cjson.decode(jobData)
-redis.call('HSET', jobKey,
-    'id', safeStr(job.id),
-    'payload', cjson.encode(job.payload),
-    'attempts', safeStr(job.attempts, '0'),
-    'maxAttempts', safeStr(job.maxAttempts, '0'),
-    'status', safeStr(job.status, 'pending'),
-    'nextAttemptAt', safeStr(job.nextAttemptAt),
-    'createdAt', safeStr(job.createdAt, '0'),
-    'updatedAt', safeStr(job.updatedAt, '0'),
-    'processingStartedAt', '',
-    'workerId', '',
-    'error', safeStr(job.error)
-)
-
-redis.call('LPUSH', pendingKey, jobId)
-return 1
-`;
-
-const LUA_ACQUIRE_JOB = `
-local processingKey = KEYS[1]
-local jobKey = KEYS[2]
-local now = ARGV[1]
-local jobId = ARGV[2]
-
-local exists = redis.call('EXISTS', jobKey)
-if exists == 0 then
-    return nil
-end
-
-redis.call('ZADD', processingKey, now, jobId)
-redis.call('HSET', jobKey,
-    'status', 'processing',
-    'processingStartedAt', now,
-    'updatedAt', now
-)
-redis.call('HINCRBY', jobKey, 'attempts', 1)
-
-local jobFields = redis.call('HGETALL', jobKey)
-local job = {}
-for i = 1, #jobFields, 2 do
-    job[jobFields[i]] = jobFields[i + 1]
-end
-return cjson.encode(job)
-`;
-
-const LUA_PROMOTE_DELAYED = `
-local delayedKey = KEYS[1]
-local pendingKey = KEYS[2]
-local jobKeyPrefix = ARGV[1]
-local now = tonumber(ARGV[2])
-
-local jobIds = redis.call('ZRANGEBYSCORE', delayedKey, 0, now)
-local promoted = 0
-
-for i, jobId in ipairs(jobIds) do
-    redis.call('ZREM', delayedKey, jobId)
-    redis.call('HSET', jobKeyPrefix .. jobId, 'nextAttemptAt', '', 'updatedAt', now)
-    redis.call('LPUSH', pendingKey, jobId)
-    promoted = promoted + 1
-end
-return promoted
-`;
-
-const LUA_RECOVER_STUCK_JOBS = `
-local processingKey = KEYS[1]
-local pendingKey = KEYS[2]
-local jobKeyPrefix = ARGV[1]
-local now = tonumber(ARGV[2])
-local timeoutMs = tonumber(ARGV[3])
-local threshold = now - timeoutMs
-
-local stuckJobs = redis.call('ZRANGEBYSCORE', processingKey, 0, threshold)
-local recovered = 0
-
-for i, jobId in ipairs(stuckJobs) do
-    redis.call('ZREM', processingKey, jobId)
-    redis.call('HSET', jobKeyPrefix .. jobId,
-        'status', 'pending',
-        'processingStartedAt', '',
-        'workerId', '',
-        'updatedAt', now
-    )
-    redis.call('LPUSH', pendingKey, jobId)
-    recovered = recovered + 1
-end
-return recovered
-`;
-
-
-// ── Adapter ──
-
 export class RedisStorageAdapter<T> implements StorageAdapter<T> {
     private client: Redis;
     private blockingClient: Redis;
@@ -180,7 +66,7 @@ export class RedisStorageAdapter<T> implements StorageAdapter<T> {
         const jobData = JSON.stringify(job);
 
         const result = await this.client.eval(
-            LUA_ENQUEUE, 2,
+            this.enqueueLua, 2,
             this.pendingKey, this.jobKey(job.id),
             this.config.capacity.toString(), job.id, jobData,
         ) as number;
@@ -196,7 +82,7 @@ export class RedisStorageAdapter<T> implements StorageAdapter<T> {
         const now = Date.now();
 
         const jobData = await this.client.eval(
-            LUA_ACQUIRE_JOB, 2,
+            this.acquireJobLua, 2,
             this.processingKey, this.jobKey(jobId),
             now.toString(), jobId,
         ) as string | null;
@@ -294,7 +180,7 @@ export class RedisStorageAdapter<T> implements StorageAdapter<T> {
     async promoteDelayedJobs(): Promise<number> {
         const now = Date.now();
         return await this.client.eval(
-            LUA_PROMOTE_DELAYED, 2,
+            this.promoteDelayedLua, 2,
             this.delayedKey, this.pendingKey,
             `${this.config.queueName}:job:`, now,
         ) as number;
@@ -303,7 +189,7 @@ export class RedisStorageAdapter<T> implements StorageAdapter<T> {
     async recoverStuckJobs(timeoutMs: number): Promise<number> {
         const now = Date.now();
         return await this.client.eval(
-            LUA_RECOVER_STUCK_JOBS, 2,
+            this.recoverStuckJobsLua, 2,
             this.processingKey, this.pendingKey,
             `${this.config.queueName}:job:`, now, timeoutMs,
         ) as number;
