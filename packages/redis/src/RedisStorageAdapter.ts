@@ -132,12 +132,13 @@ export class RedisStorageAdapter<T> implements StorageAdapter<T> {
         job.updatedAt = Date.now();
         job.nextAttemptAt = new Date(executeAt);
 
-        await this.client.hset(
-            this.jobKey(job.id),
-            'updatedAt', job.updatedAt.toString(),
-            'nextAttemptAt', executeAt.toString(),
-        );
-        await this.client.zadd(this.delayedKey, executeAt, job.id);
+        await this.client.multi()
+            .hset(this.jobKey(job.id),
+                'updatedAt', job.updatedAt.toString(),
+                'nextAttemptAt', executeAt.toString(),
+            )
+            .zadd(this.delayedKey, executeAt, job.id)
+            .exec();
     }
 
     async markProcessing(jobId: string, workerId: string): Promise<void> {

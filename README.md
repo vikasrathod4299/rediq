@@ -1,0 +1,185 @@
+# flexq
+
+`flexq` is a lightweight TypeScript job queue with pluggable storage.
+
+The project is organized as a monorepo with two packages:
+
+- `flexq` — core queue and worker implementation (in-memory storage included)
+- `@flexq/redis` — Redis storage adapter for production-style deployments
+
+It is designed for:
+- background job processing
+- retry with exponential backoff
+- configurable backpressure behavior
+- worker concurrency
+- stuck job recovery
+
+## Packages
+
+### `flexq` (core)
+
+Main primitives:
+- `Queue<T>`
+- `Worker<T>`
+- `StorageAdapter<T>`
+- `BackpressureStrategy`
+
+### `@flexq/redis`
+
+Adds `RedisStorageAdapter<T>` that implements the core `StorageAdapter<T>` contract.
+
+---
+
+## Install
+
+### In this monorepo
+
+```bash
+npm install
+```
+
+Build all packages:
+
+```bash
+npm run build
+```
+
+Run tests:
+
+```bash
+npm test
+```
+
+---
+
+## Quick start (in-memory)
+
+```ts
+import { Queue, Worker } from 'flexq';
+
+type EmailJob = { to: string; subject: string };
+
+const queue = new Queue<EmailJob>('emails', { capacity: 1000 });
+
+const worker = new Worker<EmailJob>('emails', {
+  concurrency: 2,
+  processor: async (job) => {
+    // your job logic
+    console.log(`Sending email to ${job.payload.to}`);
+  },
+});
+
+async function main() {
+  await queue.connect();
+
+  await queue.add({ to: 'user@example.com', subject: 'Welcome' }, { maxAttempts: 3 });
+  await queue.add({ to: 'ops@example.com', subject: 'Daily report' }, { maxAttempts: 5 });
+
+  await worker.start();
+
+  // later, when shutting down:
+  // await worker.stop();
+  // await queue.disconnect();
+}
+
+main().catch(console.error);
+```
+
+---
+
+## Backpressure strategies
+
+When queue capacity is reached, choose behavior via `backpressureStrategy`:
+
+- `BackpressureStrategy.BLOCK_PRODUCER` (default): wait until space is available
+- `BackpressureStrategy.DROP_OLDEST`: remove oldest pending job, enqueue new one
+- `BackpressureStrategy.DROP_NEWEST`: reject newest incoming job
+- `BackpressureStrategy.ERROR`: throw immediately
+
+Example:
+
+```ts
+import { Queue, BackpressureStrategy } from 'flexq';
+
+const queue = new Queue('events', {
+  capacity: 500,
+  backpressureStrategy: BackpressureStrategy.BLOCK_PRODUCER,
+});
+```
+
+---
+
+## Retries and failure handling
+
+- `maxAttempts` is set per job (`queue.add(payload, { maxAttempts })`)
+- failed jobs are retried with exponential delay
+- once attempts are exhausted, job is marked `failed`
+
+---
+
+## Redis adapter example
+
+```ts
+import { Queue, Worker } from 'flexq';
+import { RedisStorageAdapter } from '@flexq/redis';
+
+type JobPayload = { taskId: string };
+
+const storage = new RedisStorageAdapter<JobPayload>({
+  host: '127.0.0.1',
+  port: 6379,
+  queueName: 'tasks',
+  capacity: 10000,
+});
+
+const queue = new Queue<JobPayload>('tasks', { storage });
+const worker = new Worker<JobPayload>('tasks', {
+  storage,
+  concurrency: 4,
+  processor: async (job) => {
+    console.log('Processing', job.payload.taskId);
+  },
+});
+```
+
+---
+
+## Events
+
+Queue emits:
+- `queue:connected`
+- `queue:disconnected`
+- `job:added`
+- `job:dropped`
+
+Worker emits:
+- `worker:started`
+- `worker:stopped`
+- `job:processing`
+- `job:completed`
+- `job:retry`
+- `job:failed`
+- `worker:error`
+
+---
+
+## Development notes
+
+- TypeScript strict mode enabled
+- Jest + ts-jest test setup
+- npm workspaces monorepo
+
+Useful commands:
+
+```bash
+npm run build
+npm run test
+npm run test:coverage
+npm run clean
+```
+
+---
+
+## License
+
+MIT

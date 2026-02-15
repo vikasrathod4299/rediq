@@ -17,6 +17,17 @@ export class Queue<T> extends EventEmitter {
     private capacity: number;
     private backpressureStrategy: BackpressureStrategy;
     private isConnected: boolean = false;
+    
+    // Locks and flags for backpressure handling
+    private enqueueLock: boolean = false;
+    private drainingProducers: boolean = false;
+
+    private waitingProducers: Array<{ 
+        payload: T;
+        options: { maxAttempts?: number };
+        resolve: (job: Job<T>) => void;
+        reject: (error: Error) => void 
+    }> = [];
 
     constructor(queueName: string, options: QueueOptions<T> = {}) {
         super();
@@ -59,40 +70,105 @@ export class Queue<T> extends EventEmitter {
 
         if (added) {
             this.emit('job:added', job);
+            await this.drainWaitingProducers();
             return job;
         }
 
-        return this.handleBackpressure(payload, options);
+        return this.handleBackpressure(job);
     }
 
-    private async handleBackpressure(payload: T, options: { maxAttempts?: number }): Promise<Job<T>> {
+    private async handleBackpressure(job: Job<T>): Promise<Job<T>> {
+
         switch (this.backpressureStrategy) {
+
             case BackpressureStrategy.DROP_NEWEST: {
-                this.emit('job:dropped', { payload, reason: "DROP_NEWEST" });
+                this.emit('job:dropped', { job, reason: "DROP_NEWEST" });
                 throw new Error("Queue is full. Job dropped (DROP_NEWEST).");
+            }
+
+            case BackpressureStrategy.DROP_OLDEST: {
+                return this.dropOldestAndEnqueue(job)
+            }
+
+            case BackpressureStrategy.BLOCK_PRODUCER: {
+                return new Promise((resolve, reject) => {
+                    this.waitingProducers.push({ 
+                        payload: job.payload,
+                        options: { maxAttempts: job.maxAttempts },
+                        resolve, 
+                        reject
+                    });
+                });
             }
 
             case BackpressureStrategy.ERROR: {
                 throw new Error("Queue is full. Job cannot be added.");
             }
 
-            case BackpressureStrategy.BLOCK_PRODUCER: {
-                while (await this.storage.isFull()) {
-                    await new Promise(resolve => setTimeout(resolve, 100));
-                }
-                return this.add(payload, options);
-            }
-
-            case BackpressureStrategy.DROP_OLDEST: {
-                const oldestJob = await this.storage.dequeue(0);
-                if (oldestJob) {
-                    this.emit('job:dropped', { job: oldestJob, reason: "DROP_OLDEST" });
-                }
-                return this.add(payload, options);
-            }
-
             default:
                 throw new Error("Queue is full.");
+        }
+    }
+
+    private async dropOldestAndEnqueue(job: Job<T>): Promise<Job<T>> {
+        while (this.enqueueLock) {
+            await new Promise(resolve => setTimeout(resolve, 10))
+        }
+
+        this.enqueueLock = true;
+
+        try {
+            const still_full = await this.storage.isFull();
+            if(!still_full) {
+                const added = await this.storage.enqueue(job);
+                if(added) {
+                    this.emit('job:added', job);
+                    return job;
+                }
+            }
+            const oldestJob = await this.storage.dequeue(0);
+            if(!oldestJob) {
+                // No pending jobs to drop (all are processing), can't apply DROP_OLDEST
+                this.emit('job:dropped', { job, reason: "DROP_OLDEST_FAILED" });
+                throw new Error('Queue is full. No pending jobs to drop (all jobs are processing).');
+            }
+            const added = await this.storage.enqueue(job);
+
+            if(added) {
+                this.emit('job:dropped', { job: oldestJob, reason: "DROP_OLDEST" });
+                this.emit('job:added', job);
+                return job;
+            }
+
+            // Re-enqueue the dropped job so we don't lose it silently.
+            await this.storage.enqueue(oldestJob);
+            throw new Error('Queue is full. Failed to enqueue new job even after dropping oldest job.');
+        } finally {
+            this.enqueueLock = false;
+
+        }
+    }
+
+    /**
+     * Called after a job is dequeued and processed/completed (space freed).
+     * Tries to enqueue the next waiting producer's job.
+     */
+    private async drainWaitingProducers(): Promise<void> {
+        if(this.drainingProducers) return;
+        this.drainingProducers = true;
+
+        if (this.waitingProducers.length === 0) return;
+        if (await this.storage.isFull()) return;
+
+        const waiter = this.waitingProducers.shift()!;
+
+        try {
+            const job = await this.add(waiter.payload, waiter.options)
+            waiter.resolve(job);
+        } catch (error) {
+            waiter.reject(error instanceof Error ? error : new Error(String(error)));
+        } finally {
+            this.drainingProducers = false;
         }
     }
 

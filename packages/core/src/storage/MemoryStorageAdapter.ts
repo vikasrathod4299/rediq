@@ -34,20 +34,17 @@ export class MemoryStorageAdapter<T> implements StorageAdapter<T> {
         job.updatedAt = now;
         job.status = "pending";
 
-        if (this.jobs.size >= this.capacity) {
-            return false;
-        }
-
-        this.jobs.set(job.id, job);
-
         // If consumers are waiting, deliver the job immediately
         if(this.waitingConsumers.length > 0) {
+            this.jobs.set(job.id, job);
+
             const resolver = this.waitingConsumers.shift()!;
 
             job.status = "processing";
             job.attempts++;
             job.processingStartedAt = now;
             job.updatedAt = now;
+
             this.processingJobs.set(job.id, now);
 
             resolver(job);
@@ -56,10 +53,10 @@ export class MemoryStorageAdapter<T> implements StorageAdapter<T> {
 
         // Check capacity
         if (this.queue.length >= this.capacity) {
-            this.jobs.delete(job.id);
             return false;
         }
 
+        this.jobs.set(job.id, job);
         this.queue.push(job.id);
         return true;
     }

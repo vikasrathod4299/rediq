@@ -1,0 +1,124 @@
+# flexq
+
+A lightweight TypeScript job queue with pluggable storage.
+
+`flexq` provides `Queue<T>` and `Worker<T>` primitives with retries, backpressure control, delayed retries, and stuck-job recovery.  
+It ships with an in-memory adapter and allows custom adapters through `StorageAdapter<T>`.
+
+## Installation
+
+```bash
+npm install flexq
+```
+
+## Quick start
+
+```ts
+import { Queue, Worker } from 'flexq';
+
+type JobPayload = { message: string };
+
+const queue = new Queue<JobPayload>('emails', {
+  capacity: 1000,
+});
+
+const worker = new Worker<JobPayload>('emails', {
+  concurrency: 2,
+  processor: async (job) => {
+    console.log('Processing:', job.payload.message);
+  },
+});
+
+async function main() {
+  await queue.connect();
+
+  await queue.add({ message: 'Welcome email' }, { maxAttempts: 3 });
+  await queue.add({ message: 'Password reset' }, { maxAttempts: 5 });
+
+  await worker.start();
+
+  // graceful shutdown example:
+  // await worker.stop();
+  // await queue.disconnect();
+}
+
+main().catch(console.error);
+```
+
+## Core concepts
+
+- `Queue<T>`: accepts jobs and applies backpressure strategy when full.
+- `Worker<T>`: consumes and processes jobs with configurable concurrency.
+- `StorageAdapter<T>`: storage contract for custom adapters.
+- `BackpressureStrategy`: full-queue behavior control.
+
+## Backpressure strategies
+
+Use `backpressureStrategy` in `Queue` options:
+
+- `BackpressureStrategy.BLOCK_PRODUCER` (default)
+- `BackpressureStrategy.DROP_OLDEST`
+- `BackpressureStrategy.DROP_NEWEST`
+- `BackpressureStrategy.ERROR`
+
+Example:
+
+```ts
+import { Queue, BackpressureStrategy } from 'flexq';
+
+const queue = new Queue('events', {
+  capacity: 500,
+  backpressureStrategy: BackpressureStrategy.BLOCK_PRODUCER,
+});
+```
+
+## Retries
+
+Set retries per job with `maxAttempts`:
+
+```ts
+await queue.add({ message: 'Send receipt' }, { maxAttempts: 4 });
+```
+
+On processor errors:
+- job is retried with exponential backoff
+- after max attempts, job is marked `failed`
+
+## Events
+
+### Queue events
+
+- `queue:connected`
+- `queue:disconnected`
+- `job:added`
+- `job:dropped`
+
+### Worker events
+
+- `worker:started`
+- `worker:stopped`
+- `job:processing`
+- `job:completed`
+- `job:retry`
+- `job:failed`
+- `worker:error`
+
+## API surface
+
+Main exports include:
+
+- `Queue`
+- `Worker`
+- `BackpressureStrategy`
+- `StorageAdapter`
+- `MemoryStorageAdapter`
+- `getMemoryStorage()`
+- `clearMemoryStorageRegistry()`
+
+## Requirements
+
+- Node.js >= 16
+
+## License
+
+MIT
