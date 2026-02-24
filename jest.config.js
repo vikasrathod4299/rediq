@@ -5,8 +5,8 @@ module.exports = {
   roots: ['<rootDir>/tests'],
   testMatch: ['**/*.test.ts'],
   moduleNameMapper: {
-    '^flexq$': '<rootDir>/packages/core/src',
-    '^@flexq/redis$': '<rootDir>/packages/redis/src',
+    '^flexmq$': '<rootDir>/packages/core/src',
+    '^@flexmq/redis$': '<rootDir>/packages/redis/src',
   },
   collectCoverageFrom: [
     'packages/*/src/**/*.ts',

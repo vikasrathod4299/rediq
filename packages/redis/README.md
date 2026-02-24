@@ -1,14 +1,14 @@
-# @flexq/redis
+# @flexmq/redis
 
-Redis storage adapter for `flexq`.
+Redis storage adapter for `flexmq`.
 
-`@flexq/redis` provides `RedisStorageAdapter<T>`, an implementation of the `StorageAdapter<T>` interface from `flexq`.  
+`@flexmq/redis` provides `RedisStorageAdapter<T>`, an implementation of the `StorageAdapter<T>` interface from `flexmq`.  
 Use it when you want persistent/distributed queue state instead of in-memory storage.
 
 ## Installation
 
 ```bash
-npm install flexq @flexq/redis ioredis
+npm install flexmq @flexmq/redis ioredis
 ```
 
 > `ioredis` is a peer dependency and must be installed by the consuming app.
@@ -16,8 +16,8 @@ npm install flexq @flexq/redis ioredis
 ## Quick start
 
 ```ts
-import { Queue, Worker } from 'flexq';
-import { RedisStorageAdapter } from '@flexq/redis';
+import { Queue, Worker } from 'flexmq';
+import { RedisStorageAdapter } from '@flexmq/redis';
 
 type TaskPayload = { taskId: string };
 
@@ -80,7 +80,7 @@ interface RedisConfig {
 
 ## Compatibility
 
-- Requires `flexq` as dependency.
+- Requires `flexmq` as dependency.
 - Requires `ioredis` v5+.
 
 ## License

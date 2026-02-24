@@ -1,4 +1,4 @@
-# Contributing to flexq
+# Contributing to flexmq
 
 Thanks for your interest in contributing.
 

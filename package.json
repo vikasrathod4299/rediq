@@ -1,5 +1,5 @@
 {
-  "name": "flexq-monorepo",
+  "name": "flexmq-monorepo",
   "private": true,
   "version": "1.0.0",
   "workspaces": [
@@ -21,5 +21,8 @@
     "ts-jest": "^29.1.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
+  },
+  "overrides": {
+    "minimatch": "^10.2.1"
   }
 }

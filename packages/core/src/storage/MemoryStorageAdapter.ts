@@ -20,6 +20,11 @@ export class MemoryStorageAdapter<T> implements StorageAdapter<T> {
     }
 
     async disconnect(): Promise<void> {
+        // Resolve pending consumers so dequeue promises complete and their timers are cleared.
+        for (const resolveWaitingConsumer of this.waitingConsumers) {
+            resolveWaitingConsumer(null);
+        }
+
         // clear all data
         this.queue = [];
         this.jobs.clear();
@@ -85,8 +90,10 @@ export class MemoryStorageAdapter<T> implements StorageAdapter<T> {
         }
 
         return new Promise<Job<T> | null>((resolve) => {
+            let wrappedResolver: (job: Job<T> | null) => void;
+
             const timeoutId = setTimeout(() => {
-                const index = this.waitingConsumers.indexOf(resolve);
+                const index = this.waitingConsumers.indexOf(wrappedResolver);
 
                 if(index !== -1) {
                     this.waitingConsumers.splice(index, 1);
@@ -95,7 +102,7 @@ export class MemoryStorageAdapter<T> implements StorageAdapter<T> {
                 resolve(null);
             }, timeout * 1000);
 
-            const wrappedResolver = (job: Job<T> | null) => {
+            wrappedResolver = (job: Job<T> | null) => {
                 clearTimeout(timeoutId);
                 resolve(job);
             };

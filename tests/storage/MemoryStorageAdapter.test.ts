@@ -1,4 +1,4 @@
-import { MemoryStorageAdapter, Job } from 'flexq';
+import { MemoryStorageAdapter, Job } from 'flexmq';
 
 describe("MemoryStorageAdapter", () => {
     let storage: MemoryStorageAdapter<{ data: string }>;

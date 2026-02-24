@@ -1,4 +1,4 @@
-import { Queue, Worker, Job, clearMemoryStorageRegistry } from 'flexq';
+import { Queue, Worker, Job, clearMemoryStorageRegistry } from 'flexmq';
 
 describe('Worker', () => {
   let queue: Queue<{ data: string }>;

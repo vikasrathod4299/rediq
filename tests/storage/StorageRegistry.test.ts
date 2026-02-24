@@ -1,4 +1,4 @@
-import { getMemoryStorage, clearMemoryStorageRegistry, MemoryStorageAdapter } from 'flexq';
+import { getMemoryStorage, clearMemoryStorageRegistry, MemoryStorageAdapter } from 'flexmq';
 
 describe('StorageRegistry', () => {
   beforeEach(() => {

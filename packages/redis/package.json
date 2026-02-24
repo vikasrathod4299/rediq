@@ -1,11 +1,20 @@
 {
-    "name": "@flexq/redis",
+    "name": "@flexmq/redis",
     "version": "0.1.0",
-    "description": "Redis storage adapter for flexq job queue",
+    "description": "Redis storage adapter for flexmq job queue",
     "author": "Vikas Rathod",
     "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/vikasrathod4299/flexmq.git",
+        "directory": "packages/redis"
+    },
+    "bugs": {
+        "url": "https://github.com/vikasrathod4299/flexmq/issues"
+    },
+    "homepage": "https://github.com/vikasrathod4299/flexmq#readme",
     "keywords": [
-        "flexq",
+        "flexmq",
         "redis",
         "job-queue",
         "async-queue",
@@ -19,14 +28,15 @@
             "require": "./dist/index.js"
         }
     },
-
+    "publishConfig": {
+        "access": "public"
+    },
     "files": [
         "dist" 
     ],
     "engines": {
         "node": ">=16.0.0"
     },
-
     "scripts": {
         "build": "tsc && cp -r src/lua-scripts dist/lua-scripts",
         "clean": "rm -rf dist",
@@ -34,7 +44,7 @@
     },
 
     "dependencies": {
-        "flexq": "^0.1.0"
+        "flexmq": "^0.1.0"
     },
     "peerDependencies": {
         "ioredis": "^5.0.0"

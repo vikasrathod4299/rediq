@@ -1,4 +1,4 @@
-import { Queue, Worker, clearMemoryStorageRegistry } from 'flexq';
+import { Queue, Worker, clearMemoryStorageRegistry } from 'flexmq';
 
 describe('End-to-End Integration', () => {
   beforeEach(() => {

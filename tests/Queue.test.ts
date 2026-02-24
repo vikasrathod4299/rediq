@@ -1,4 +1,4 @@
-import { Queue, BackpressureStrategy, clearMemoryStorageRegistry } from 'flexq';
+import { Queue, BackpressureStrategy, clearMemoryStorageRegistry } from 'flexmq';
 
 describe('Queue', () => {
   let queue: Queue<{ email: string }>;

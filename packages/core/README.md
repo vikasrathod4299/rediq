@@ -1,20 +1,20 @@
-# flexq
+# flexmq
 
 A lightweight TypeScript job queue with pluggable storage.
 
-`flexq` provides `Queue<T>` and `Worker<T>` primitives with retries, backpressure control, delayed retries, and stuck-job recovery.  
+`flexmq` provides `Queue<T>` and `Worker<T>` primitives with retries, backpressure control, delayed retries, and stuck-job recovery.  
 It ships with an in-memory adapter and allows custom adapters through `StorageAdapter<T>`.
 
 ## Installation
 
 ```bash
-npm install flexq
+npm install flexmq
 ```
 
 ## Quick start
 
 ```ts
-import { Queue, Worker } from 'flexq';
+import { Queue, Worker } from 'flexmq';
 
 type JobPayload = { message: string };
 
@@ -64,7 +64,7 @@ Use `backpressureStrategy` in `Queue` options:
 Example:
 
 ```ts
-import { Queue, BackpressureStrategy } from 'flexq';
+import { Queue, BackpressureStrategy } from 'flexmq';
 
 const queue = new Queue('events', {
   capacity: 500,

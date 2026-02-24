@@ -1,7 +1,7 @@
 import Redis from "ioredis";
-import { Job, StorageAdapter } from "flexq";
+import { Job, StorageAdapter } from "flexmq";
 import { RedisConfig } from "./RedisConfig";
-import path from "path/win32";
+import path from "path";
 import fs from "fs";
 
 export class RedisStorageAdapter<T> implements StorageAdapter<T> {

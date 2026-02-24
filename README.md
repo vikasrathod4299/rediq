@@ -1,11 +1,11 @@
-# flexq
+# flexmq
 
-`flexq` is a lightweight TypeScript job queue with pluggable storage.
+`flexmq` is a lightweight TypeScript job queue with pluggable storage.
 
 The project is organized as a monorepo with two packages:
 
-- `flexq` — core queue and worker implementation (in-memory storage included)
-- `@flexq/redis` — Redis storage adapter for production-style deployments
+- `flexmq` — core queue and worker implementation (in-memory storage included)
+- `@flexmq/redis` — Redis storage adapter for production-style deployments
 
 It is designed for:
 - background job processing
@@ -16,7 +16,7 @@ It is designed for:
 
 ## Packages
 
-### `flexq` (core)
+### `flexmq` (core)
 
 Main primitives:
 - `Queue<T>`
@@ -24,7 +24,7 @@ Main primitives:
 - `StorageAdapter<T>`
 - `BackpressureStrategy`
 
-### `@flexq/redis`
+### `@flexmq/redis`
 
 Adds `RedisStorageAdapter<T>` that implements the core `StorageAdapter<T>` contract.
 
@@ -55,7 +55,7 @@ npm test
 ## Quick start (in-memory)
 
 ```ts
-import { Queue, Worker } from 'flexq';
+import { Queue, Worker } from 'flexmq';
 
 type EmailJob = { to: string; subject: string };
 
@@ -99,7 +99,7 @@ When queue capacity is reached, choose behavior via `backpressureStrategy`:
 Example:
 
 ```ts
-import { Queue, BackpressureStrategy } from 'flexq';
+import { Queue, BackpressureStrategy } from 'flexmq';
 
 const queue = new Queue('events', {
   capacity: 500,
@@ -120,8 +120,8 @@ const queue = new Queue('events', {
 ## Redis adapter example
 
 ```ts
-import { Queue, Worker } from 'flexq';
-import { RedisStorageAdapter } from '@flexq/redis';
+import { Queue, Worker } from 'flexmq';
+import { RedisStorageAdapter } from '@flexmq/redis';
 
 type JobPayload = { taskId: string };
 
