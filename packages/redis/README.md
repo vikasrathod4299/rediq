@@ -1,9 +1,8 @@
 # @flexmq/redis
 
-Redis storage adapter for `flexmq`.
+Redis storage adapter for [`flexmq`](https://www.npmjs.com/package/flexmq).
 
-`@flexmq/redis` provides `RedisStorageAdapter<T>`, an implementation of the `StorageAdapter<T>` interface from `flexmq`.  
-Use it when you want persistent/distributed queue state instead of in-memory storage.
+It provides persistent queue storage, delayed job scheduling, processing recovery, and safe multi-worker coordination using Redis + Lua scripts.
 
 ## Installation
 
@@ -11,44 +10,48 @@ Use it when you want persistent/distributed queue state instead of in-memory sto
 npm install flexmq @flexmq/redis ioredis
 ```
 
-> `ioredis` is a peer dependency and must be installed by the consuming app.
+## Requirements
+
+- Node.js `>=16`
+- Redis `>=6`
+- `ioredis` `^5`
 
 ## Quick start
 
 ```ts
-import { Queue, Worker } from 'flexmq';
-import { RedisStorageAdapter } from '@flexmq/redis';
+import { Queue, Worker } from "flexmq";
+import { RedisStorageAdapter } from "@flexmq/redis";
 
-type TaskPayload = { taskId: string };
+type Payload = { message: string };
 
-const storage = new RedisStorageAdapter<TaskPayload>({
-  host: '127.0.0.1',
+const storage = new RedisStorageAdapter<Payload>({
+  host: "127.0.0.1",
   port: 6379,
-  queueName: 'tasks',
-  capacity: 10000,
+  queueName: "emails",
 });
 
-const queue = new Queue<TaskPayload>('tasks', { storage });
-
-const worker = new Worker<TaskPayload>('tasks', {
+const queue = new Queue<Payload>("emails", {
   storage,
-  concurrency: 4,
+  capacity: 1000,
+});
+
+const worker = new Worker<Payload>("emails", {
+  storage,
+  concurrency: 2,
   processor: async (job) => {
-    console.log('Processing task', job.payload.taskId);
+    console.log("Processing:", job.payload.message);
   },
 });
 
 async function main() {
+  await storage.connect();
   await queue.connect();
 
-  await queue.add({ taskId: 'task-1' }, { maxAttempts: 3 });
-  await queue.add({ taskId: 'task-2' }, { maxAttempts: 5 });
+  await queue.add({ message: "Welcome email" }, { maxAttempts: 3 });
+  await queue.add({ message: "Password reset" }, { maxAttempts: 5 });
 
   await worker.start();
 
-  // graceful shutdown example:
-  // await worker.stop();
-  // await queue.disconnect();
 }
 
 main().catch(console.error);
@@ -56,32 +59,33 @@ main().catch(console.error);
 
 ## Configuration
 
-`RedisStorageAdapter` expects:
+`RedisStorageAdapter` accepts a Redis config object (typed in package exports).  
+Common fields:
 
-```ts
-interface RedisConfig {
-  host: string;
-  port: number;
-  password?: string;
-  queueName: string;
-  capacity: number;
-}
-```
+- `host`
+- `port`
+- `queueName`
+- optional auth/db/prefix fields (if needed by your Redis setup)
 
-- `queueName` is used as key prefix in Redis.
-- `capacity` limits pending queue length.
+## Runtime behavior
 
-## Behavior notes
+- Jobs are stored in Redis hashes.
+- Pending jobs are consumed with blocking pop semantics.
+- Delayed jobs are promoted when due.
+- Stuck processing jobs can be recovered and retried.
+- Payload is serialized/deserialized safely for object payloads.
 
-- Uses Redis lists/sorted sets/hashes for queue and job state.
-- Supports delayed retry promotion.
-- Supports stuck job recovery.
-- Uses blocking dequeue for workers (`BRPOP`) with timeout.
+## Production notes
 
-## Compatibility
+- Use a dedicated Redis DB/key prefix per environment.
+- Run multiple workers for horizontal scaling.
+- Monitor retry/failure rates.
+- Ensure clocks are reasonably synchronized across worker machines.
+- Use graceful shutdown in workers to avoid duplicate processing windows.
 
-- Requires `flexmq` as dependency.
-- Requires `ioredis` v5+.
+## Related packages
+
+- Core queue: [`flexmq`](https://www.npmjs.com/package/flexmq)
 
 ## License
 

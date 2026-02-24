@@ -115,6 +115,17 @@ Main exports include:
 - `getMemoryStorage()`
 - `clearMemoryStorageRegistry()`
 
+## Adapters
+
+- In-memory adapter: built in
+- Redis adapter: [`@flexmq/redis`](https://www.npmjs.com/package/@flexmq/redis)
+
+### Redis quick install
+
+```bash
+npm install flexmq @flexmq/redis ioredis
+```
+
 ## Requirements
 
 - Node.js >= 16
